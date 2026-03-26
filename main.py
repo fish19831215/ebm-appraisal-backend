@@ -417,19 +417,19 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              response = model.generate_content(prompt)
              llm_report = response.text
              
-            import markdown
-            try:
-                html_content = markdown.markdown(llm_report, extensions=['extra'])
-            except ImportError:
-                html_content = f"<pre style='white-space: pre-wrap; font-family: inherit;'>{llm_report}</pre>"
-                
-            try:
-                db.add(ActivityLog(action_type="GENERATE_REPORT", details=f"Generated report for {len(req.articles)} articles. PICO: {req.pico_query}"))
-                db.commit()
-            except Exception as _e:
-                db.rollback()
-                
-            return {"report_html": f"<div class='gemini-response ebm-report'>{html_content}</div>"}
+             import markdown
+             try:
+                 html_content = markdown.markdown(llm_report, extensions=['extra'])
+             except ImportError:
+                 html_content = f"<pre style='white-space: pre-wrap; font-family: inherit;'>{llm_report}</pre>"
+                 
+             try:
+                 db.add(ActivityLog(action_type="GENERATE_REPORT", details=f"Generated report for {len(req.articles)} articles. PICO: {req.pico_query}"))
+                 db.commit()
+             except Exception as _e:
+                 db.rollback()
+                 
+             return {"report_html": f"<div class='gemini-response ebm-report'>{html_content}</div>"}
         except Exception as e:
             print("Gemini API Error in generating report:", e)
             return {"report_html": "<p style='color: red;'>生成報告時發生錯誤，請檢查 API_KEY 或網路連線。</p>"}
