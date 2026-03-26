@@ -367,11 +367,14 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              【納入分析的文獻 (共 {len(req.articles)} 篇)】
              {articles_context}
              
-             【報告必須包含以下四大區塊，並使用 Markdown 格式排版】
+             【報告必須包含以下五大區塊，並使用 Markdown 格式排版】
              1. 背景 (Background)：簡述本次臨床提問的核心內容。
              2. 方法 (Methods)：說明使用了哪些搜尋策略，以及最終納入了幾篇文獻進行分析。
-             3. 結果 (Results)：對納入的文獻證據進行綜合的 CASP (Critical Appraisal Skills Programme) 評讀，總結這些文獻的研究結果與品質。
+             3. 評讀與結果 (Results)：必須使用 **CASP 評讀表格 (Markdown Table)** 來總結所有納入文獻的品質評估，並在表格下詳細補充說明每篇文獻的結果差異與實證等級。
              4. 結論 (Conclusion)：根據評讀結果，給出具體、可行的臨床建議。
+             5. 參考文獻 (References)：列出所有納入分析的文獻，必須嚴格遵守 **APA 第七版 (APA 7th edition)** 格式。
+             
+             ⚠️ 重要要求：整份報告的內文撰寫（包含背景、方法、結果、結論），若有提及特定文獻，請務必使用標準的 **APA 文內引用 (In-text citations，例如：Author, Year)** 格式。
              """
              
              response = model.generate_content(prompt)
