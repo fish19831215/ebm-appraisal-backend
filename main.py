@@ -479,6 +479,30 @@ def view_admin_logs(page: int = 1, db: Session = Depends(get_db)):
     except Exception as e:
         return f"Database error: {{e}}"
 
+@app.get("/api/db_test")
+def db_test(db: Session = Depends(get_db)):
+    from database import DATABASE_URL
+    safe_url = DATABASE_URL
+    if "@" in safe_url:
+        safe_url = safe_url.split("://")[0] + "://[USER]:[PASS]@" + safe_url.split("@")[-1]
+    
+    try:
+        new_log = ActivityLog(action_type="SYSTEM_TEST", details="Debug insert test")
+        db.add(new_log)
+        db.commit()
+        
+        # Test if query works
+        count = db.query(ActivityLog).count()
+        return {"status": "success", "db_url": safe_url, "total_logs": count}
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error", 
+            "db_url": safe_url,
+            "error_msg": str(e), 
+            "trace": traceback.format_exc()
+        }
+
 if __name__ == "__main__":
 
     import uvicorn
