@@ -182,6 +182,13 @@ async def extract_pico(req: ExtractPicoRequest, db: Session = Depends(get_db)):
         text = text.strip()
         pico_json = json.loads(text)
         print(f"==========\\n[用戶紀錄] 萃取 PICO:\\n{json.dumps(pico_json, ensure_ascii=False, indent=2)}\\n==========")
+        
+        try:
+            db.add(ActivityLog(action_type="PICO_EXTRACTION", details=f"P: {pico_json.get('p')}\nI: {pico_json.get('i')}\nC: {pico_json.get('c')}\nO: {pico_json.get('o')}"))
+            db.commit()
+        except Exception as _e:
+            db.rollback()
+            
         return pico_json
     except Exception as e:
         print(f"PICO extraction error: {e}")
@@ -218,6 +225,13 @@ async def auto_modify_strategy(req: ModifyStrategyRequest):
 @app.post("/api/search")
 async def search_pubmed(req: SearchRequest, db: Session = Depends(get_db)):
     print(f"==========\\n[用戶紀錄] 執行 PubMed 搜尋:\\n搜尋字串: {req.query}\\n限制年份: {req.year_limit} 年\\n==========")
+    
+    try:
+        db.add(ActivityLog(action_type="SEARCH", details=f"Query: {req.query}\nTimeLimit: {req.year_limit}"))
+        db.commit()
+    except Exception as _e:
+        db.rollback()
+        
     if not req.query:
         return {"results": []}
         
@@ -403,13 +417,19 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              response = model.generate_content(prompt)
              llm_report = response.text
              
-             import markdown
-             try:
-                 html_content = markdown.markdown(llm_report, extensions=['extra'])
-             except ImportError:
-                 html_content = f"<pre style='white-space: pre-wrap; font-family: inherit;'>{llm_report}</pre>"
-                 
-             return {"report_html": f"<div class='gemini-response ebm-report'>{html_content}</div>"}
+            import markdown
+            try:
+                html_content = markdown.markdown(llm_report, extensions=['extra'])
+            except ImportError:
+                html_content = f"<pre style='white-space: pre-wrap; font-family: inherit;'>{llm_report}</pre>"
+                
+            try:
+                db.add(ActivityLog(action_type="GENERATE_REPORT", details=f"Generated report for {len(req.articles)} articles. PICO: {req.pico_query}"))
+                db.commit()
+            except Exception as _e:
+                db.rollback()
+                
+            return {"report_html": f"<div class='gemini-response ebm-report'>{html_content}</div>"}
         except Exception as e:
             print("Gemini API Error in generating report:", e)
             return {"report_html": "<p style='color: red;'>生成報告時發生錯誤，請檢查 API_KEY 或網路連線。</p>"}
