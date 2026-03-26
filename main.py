@@ -1,5 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from database import init_db, get_db, ActivityLog
 from pydantic import BaseModel
 import httpx
 import os
@@ -22,6 +25,10 @@ if not os.getenv("GEMINI_API_KEY") and os.path.exists(env_path):
                 os.environ["GEMINI_API_KEY"] = line.split("=", 1)[1].strip()
 
 app = FastAPI(title="EBM Appraisal Tool API", version="1.0.0")
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # Configure CORS
 app.add_middleware(
@@ -81,7 +88,7 @@ async def generate_search_strategy(pico: PicoRequest):
     return {"query": query}
 
 @app.post("/api/chat")
-async def chat_with_ebm(req: ChatRequest):
+async def chat_with_ebm(req: ChatRequest, db: Session = Depends(get_db)):
     # Using the directly provided API key from the user
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -139,7 +146,7 @@ async def chat_with_ebm(req: ChatRequest):
         return {"response": f"抱歉，系統目前遇到了一點問題，請稍候再試。錯誤明細：{str(e)}"}
 
 @app.post("/api/extract-pico")
-async def extract_pico(req: ExtractPicoRequest):
+async def extract_pico(req: ExtractPicoRequest, db: Session = Depends(get_db)):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return {"p": "", "i": "", "c": "", "o": ""}
@@ -209,7 +216,7 @@ async def auto_modify_strategy(req: ModifyStrategyRequest):
         return {"new_query": req.original_query}
 
 @app.post("/api/search")
-async def search_pubmed(req: SearchRequest):
+async def search_pubmed(req: SearchRequest, db: Session = Depends(get_db)):
     print(f"==========\\n[用戶紀錄] 執行 PubMed 搜尋:\\n搜尋字串: {req.query}\\n限制年份: {req.year_limit} 年\\n==========")
     if not req.query:
         return {"results": []}
@@ -334,7 +341,7 @@ async def appraise_article(req: AppraiseRequest):
     return {"appraisal_html": html}
 
 @app.post("/api/generate-report")
-async def generate_ebm_report(req: GenerateReportRequest):
+async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(get_db)):
     print(f"==========\\n[用戶紀錄] 生成綜合報告:\\n- PICO 搜尋字串: {req.pico_query}\\n- 納入文獻數量: {len(req.articles) if req.articles else 0} 篇\\n==========")
     if not req.articles:
         raise HTTPException(status_code=400, detail="未提供任何文獻進行分析。")
@@ -400,7 +407,53 @@ async def generate_ebm_report(req: GenerateReportRequest):
     '''
     return {"report_html": mock_html}
 
+
+@app.get("/admin_logs", response_class=HTMLResponse)
+def view_admin_logs(db: Session = Depends(get_db)):
+    try:
+        logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).limit(100).all()
+        
+        html = """
+        <html>
+            <head>
+                <meta charset="utf-8">
+                <title>EBM Tool 系統日誌後台</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f7f9fc; }
+                    h1 { color: #333; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+                    th { background-color: #4CAF50; color: white; }
+                    tr:hover { background-color: #f1f1f1; }
+                    .details { white-space: pre-wrap; font-size: 0.9em; color: #555; }
+                </style>
+            </head>
+            <body>
+                <h1>EBM Tool 系統日誌後台 (最近 100 筆)</h1>
+                <table>
+                    <tr>
+                        <th>時間 (UTC)</th>
+                        <th>動作類型</th>
+                        <th>詳細內容</th>
+                    </tr>
+        """
+        for log in logs:
+            time_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else ""
+            # Escape HTML to prevent XSS
+            safe_details = log.details.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") if log.details else ""
+            html += f"<tr><td>{time_str}</td><td>{log.action_type}</td><td class='details'>{safe_details}</td></tr>"
+            
+        html += """
+                </table>
+            </body>
+        </html>
+        """
+        return html
+    except Exception as e:
+        return f"Database error: {e}"
+
 if __name__ == "__main__":
+
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 # trigger reload
