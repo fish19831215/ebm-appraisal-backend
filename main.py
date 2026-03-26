@@ -130,6 +130,7 @@ async def chat_with_ebm(req: ChatRequest):
         chat = model.start_chat(history=formatted_history)
         response = chat.send_message(current_msg_text)
         
+        print(f"==========\\n[用戶紀錄] AI 對話:\\n用戶: {current_msg_text}\\n助理: {response.text}\\n==========")
         return {"response": response.text}
     except Exception as e:
         import traceback
@@ -173,6 +174,7 @@ async def extract_pico(req: ExtractPicoRequest):
             text = text[:-3]
         text = text.strip()
         pico_json = json.loads(text)
+        print(f"==========\\n[用戶紀錄] 萃取 PICO:\\n{json.dumps(pico_json, ensure_ascii=False, indent=2)}\\n==========")
         return pico_json
     except Exception as e:
         print(f"PICO extraction error: {e}")
@@ -208,6 +210,7 @@ async def auto_modify_strategy(req: ModifyStrategyRequest):
 
 @app.post("/api/search")
 async def search_pubmed(req: SearchRequest):
+    print(f"==========\\n[用戶紀錄] 執行 PubMed 搜尋:\\n搜尋字串: {req.query}\\n限制年份: {req.year_limit} 年\\n==========")
     if not req.query:
         return {"results": []}
         
@@ -332,6 +335,7 @@ async def appraise_article(req: AppraiseRequest):
 
 @app.post("/api/generate-report")
 async def generate_ebm_report(req: GenerateReportRequest):
+    print(f"==========\\n[用戶紀錄] 生成綜合報告:\\n- PICO 搜尋字串: {req.pico_query}\\n- 納入文獻數量: {len(req.articles) if req.articles else 0} 篇\\n==========")
     if not req.articles:
         raise HTTPException(status_code=400, detail="未提供任何文獻進行分析。")
 
