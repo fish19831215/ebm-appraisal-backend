@@ -226,7 +226,8 @@ async def search_pubmed(req: SearchRequest, db: Session = Depends(get_db)):
         "db": "pubmed",
         "term": req.query,
         "retmode": "json",
-        "retmax": req.max_results
+        "retmax": req.max_results,
+        "sort": "relevance"
     }
     
     if req.year_limit > 0:
@@ -278,6 +279,27 @@ async def search_pubmed(req: SearchRequest, db: Session = Depends(get_db)):
                             name = name + f" {fore_name.text[0]}."
                     if name:
                         authors.append(name)
+                        
+                pub_types_raw = []
+                pt_list = article_node.findall('.//PublicationTypeList/PublicationType') if article_node is not None else []
+                for pt in pt_list:
+                    if pt.text:
+                        pub_types_raw.append(pt.text)
+                
+                # Assign EBM Level Category
+                assigned_category = "Other"
+                pt_lower = [pt.lower() for pt in pub_types_raw]
+                
+                if any("systematic review" in pt or "meta-analysis" in pt for pt in pt_lower):
+                    assigned_category = "Systematic Review / Meta-Analysis"
+                elif any("randomized controlled trial" in pt for pt in pt_lower):
+                    assigned_category = "RCT"
+                elif any("clinical trial" in pt for pt in pt_lower):
+                    assigned_category = "Clinical Trial"
+                elif any("guideline" in pt or "practice guideline" in pt for pt in pt_lower):
+                    assigned_category = "Guidelines"
+                elif any("review" in pt for pt in pt_lower):
+                    assigned_category = "Review"
                 
                 results.append({
                     "id": pmid,
@@ -285,7 +307,8 @@ async def search_pubmed(req: SearchRequest, db: Session = Depends(get_db)):
                     "authors": ", ".join(authors) if authors else "Unknown",
                     "year": year,
                     "abstract": abstract,
-                    "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                    "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                    "pub_type": assigned_category
                 })
         except Exception as e:
             print("XML Parsing error:", e)
