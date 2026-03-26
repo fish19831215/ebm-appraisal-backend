@@ -3,11 +3,29 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Zeabur injects DATABASE_URL like: postgres://user:password@host:port/dbname
-# SQLAlchemy 1.4+ requires postgresql:// instead of postgres://
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ebm_logs.db")
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# Zeabur injects POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, etc.
+# Check these fallback environment variables first
+pg_user = os.getenv("POSTGRES_USER")
+pg_pass = os.getenv("POSTGRES_PASSWORD")
+pg_host = os.getenv("POSTGRES_HOST")
+pg_port = os.getenv("POSTGRES_PORT", "5432")
+pg_db = os.getenv("POSTGRES_DB", "postgres")
+
+if pg_user and pg_host:
+    DATABASE_URL = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+else:
+    # Use standard DATABASE_URL if available, else fallback to sqlite
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ebm_logs.db")
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Debug printing for Zeabur logs
+print("===============[ DB Connection string (masked) ]===============")
+safe_url = DATABASE_URL
+if "@" in safe_url:
+    safe_url = safe_url.split("://")[0] + "://[USER]:[PASS]@" + safe_url.split("@")[1]
+print(f"Connecting to: {safe_url}")
+print("=============================================================")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
