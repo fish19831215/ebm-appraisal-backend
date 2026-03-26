@@ -1,0 +1,10 @@
+[build]
+watchFilePaths = []
+
+[service]
+name = "ebm-appraisal-tool-backend"
+start_command = "python main.py"
+
+[[service.envs]]
+key = "PORT"
+value = "8000"
