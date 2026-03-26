@@ -412,48 +412,72 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
 
 
 @app.get("/admin_logs", response_class=HTMLResponse)
-def view_admin_logs(db: Session = Depends(get_db)):
+def view_admin_logs(page: int = 1, db: Session = Depends(get_db)):
     try:
-        logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).limit(100).all()
+        per_page = 50
+        offset = (page - 1) * per_page
         
-        html = """
+        total_logs = db.query(ActivityLog).count()
+        import math
+        total_pages = math.ceil(total_logs / per_page) if total_logs > 0 else 1
+        
+        logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).offset(offset).limit(per_page).all()
+        
+        html = f"""
         <html>
             <head>
                 <meta charset="utf-8">
                 <title>EBM Tool 系統日誌後台</title>
                 <style>
-                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f7f9fc; }
-                    h1 { color: #333; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-                    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-                    th { background-color: #4CAF50; color: white; }
-                    tr:hover { background-color: #f1f1f1; }
-                    .details { white-space: pre-wrap; font-size: 0.9em; color: #555; }
+                    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f7f9fc; }}
+                    h1 {{ color: #333; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }}
+                    .stats {{ font-size: 0.5em; color: #666; font-weight: normal; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
+                    th, td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }}
+                    th {{ background-color: #4CAF50; color: white; }}
+                    tr:hover {{ background-color: #f1f1f1; }}
+                    .details {{ white-space: pre-wrap; font-size: 0.9em; color: #555; word-wrap: break-word; }}
+                    .pagination {{ margin-top: 25px; display: flex; justify-content: center; gap: 15px; align-items: center; }}
+                    .btn {{ padding: 8px 16px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; border: none; font-weight: bold; font-size: 0.9em; }}
+                    .btn.disabled {{ background-color: #ccc; pointer-events: none; }}
                 </style>
             </head>
             <body>
-                <h1>EBM Tool 系統日誌後台 (最近 100 筆)</h1>
+                <h1>
+                    <span>EBM Tool 系統日誌後台</span>
+                    <span class="stats">總紀錄: {total_logs} 筆 | 第 {page} / {total_pages} 頁</span>
+                </h1>
                 <table>
                     <tr>
-                        <th>時間 (UTC)</th>
-                        <th>動作類型</th>
-                        <th>詳細內容</th>
+                        <th style="width: 15%;">時間 (UTC)</th>
+                        <th style="width: 15%;">動作類型</th>
+                        <th style="width: 70%;">詳細內容</th>
                     </tr>
         """
         for log in logs:
             time_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else ""
-            # Escape HTML to prevent XSS
             safe_details = log.details.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") if log.details else ""
             html += f"<tr><td>{time_str}</td><td>{log.action_type}</td><td class='details'>{safe_details}</td></tr>"
             
-        html += """
+        prev_disabled = "disabled" if page <= 1 else ""
+        next_disabled = "disabled" if page >= total_pages else ""
+        
+        prev_url = f"?page={page-1}" if page > 1 else "#"
+        next_url = f"?page={page+1}" if page < total_pages else "#"
+        
+        html += f"""
                 </table>
+                <div class="pagination">
+                    <a href="{prev_url}" class="btn {prev_disabled}">上一頁</a>
+                    <span style="color: #666; font-size: 0.9em;">第 {page} 頁 / 共 {total_pages} 頁</span>
+                    <a href="{next_url}" class="btn {next_disabled}">下一頁</a>
+                </div>
             </body>
         </html>
         """
         return html
     except Exception as e:
-        return f"Database error: {e}"
+        return f"Database error: {{e}}"
 
 if __name__ == "__main__":
 
