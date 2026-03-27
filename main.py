@@ -416,31 +416,31 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              【報告必須包含以下五大區塊，並使用 Markdown 格式排版】
              1. 背景 (Background)：簡述本次臨床提問的核心內容。
              2. 方法 (Methods)：說明使用了哪些搜尋策略，以及最終納入了幾篇文獻進行分析。
-             3. 評讀與結果 (Results)：請嚴格依照每篇文獻的研究類型，產生對應的 Markdown 表格。
-                ⚠️ **重要要求**：對於某些研究類型，甚至需要針對「同一篇文獻」產生「多個」不同工具的獨立表格進行多角度評讀。
-                請遵循以下對應規則：
-                - 若為 **系統性文獻 (Systematic Reviews)**，必須為該篇文獻分別產生四個獨立的表格：
-                  (1) CASP 檢核表 (2) FAITH 快速評讀表 (3) Oxford CEBM Systematic-Review Critical Appraisal Sheet (4) JBI Checklist for Systematic Reviews and Research Syntheses
-                - 若為 **隨機對照試驗 (RCT)**，必須為該篇文獻分別產生三個獨立的表格：
+             3. 評讀與結果 (Results)：請將包含**相同研究設計**的文獻群組起來，針對每個「評讀工具」呈現一個**跨多篇文獻**的綜合比較表格。
+                ⚠️ **重要要求**：請不要為單一文獻畫獨立的表格！而是「一個評讀工具畫一個表格」，並且把相同研究設計的多篇文獻都並列在這個工具的同一個表格內進行比較。
+                
+                請遵循以下工具與研究設計的對應規則：
+                - 若納入的文獻中包含 **系統性文獻 (Systematic Reviews)**，請將所有 Systematic Reviews 統整，分別產出以下 4 個工具的綜合比較表格：
+                  (1) CASP 檢核表 (2) FAITH 快速評讀表 (3) Oxford CEBM Systematic Review Critical Appraisal Sheet (4) JBI Checklist for Systematic Reviews
+                - 若包含 **隨機對照試驗 (RCT)**，請將所有 RCT 文獻統整，分別產出以下 3 個工具的綜合比較表格：
                   (1) CASP RCT Checklist (2) Oxford CEBM RCT Critical Appraisal Sheet (3) JBI Checklist for RCTs
-                - 若為 **世代研究 (Cohort study)**，產生一個表格：CASP 檢核表
-                - 若為 **病例對照研究 (Case control study)**，產生一個表格：CASP 檢核表
-                - 若為 **臨床診療指引 (Clinical practice guideline, CPG)**，產生一個表格：AGREE II 評讀工具
-                - 若為其他類型文獻，請挑選一個最合適的權威工具（如 CASP 或 JBI）。
+                - 若包含 **世代研究 (Cohort study)**，請統整所有 Cohort study，產出：CASP 檢核表 (單一綜合表格)
+                - 若包含 **病例對照研究 (Case control study)**，請統整所有 Case control study，產出：CASP 檢核表 (單一綜合表格)
+                - 若包含 **臨床診療指引 (Clinical practice guideline, CPG)**，請統整產出：AGREE II 評讀工具表格
+                - 若為其他類型文獻，請挑選一個最合適的權威工具（如 CASP 或 JBI）並綜合列表。
                 
-                ⚠️ **表格格式要求**：每一份檢核表都必須是一個獨立且完整的 **Markdown 表格**。
+                ⚠️ **表格格式要求**：每一種評讀工具（如 CASP 檢核表）都必須是一個獨立的 **Markdown 表格**。
                 在每個表格上方，請明確標示：
-                - 文獻作者與年份：
-                - 研究設計類型：
-                - 所選用的評讀工具名稱：（明確標示是 CASP, JBI, FAITH 或是 Oxford CEBM 等）
+                - 該表格使用的「評讀工具名稱」
+                - 該表格評讀了哪些「文獻 (作者與年份)」
                 
-                表格的欄位必須固定為三欄，請詳細列出該檢核表工具的所有評估題目來做呈現：
-                | 評估項目 (Assessment Item) | 評估結果 (Yes / No / Unclear / N/A) | 詳細說明與證據 (Comments/Evidence) |
-                |---|---|---|
-                | (列出對應工具的題目 1) | ... | (根據摘要判斷的說明) |
-                | (列出對應工具的題目 2) | ... | (根據摘要判斷的說明) |
+                表格的欄位必須能夠同時對照多篇文獻的結果，請根據納入的文獻數量動態增加欄位。格式必須如下：
+                | 評估項目 (Assessment Item) | 文獻A (回答 Yes/No/Unclear) | 文獻B (回答 Yes/No/Unclear) | ... | 綜合說明與證據 (Comments) |
+                |---|---|---|---|---|
+                | (列出該工具的具體題目 1) | ... | ... | ... | (針對此項目的綜合說明) |
+                | (列出該工具的具體題目 2) | ... | ... | ... | (針對此項目的綜合說明) |
                 
-                全部的檢核表羅列完畢後，請根據該篇文獻的整體評讀結果給予綜合評價。
+                當一組研究設計的所有評讀工具表格都呈現完畢後，請簡單統整該組文獻的最終防禦力（無重大偏差風險）及其實證等級 (Level of Evidence)。
                 
              4. 結論與建議 (Conclusion & Recommendations)：綜合上述所有文獻的各項檢核表評讀結果，給予最終的臨床結論以及具體建議。
              5. 參考文獻 (References)：列出所有納入分析的文獻，必須嚴格遵守 **APA 第七版 (APA 7th edition)** 格式。
