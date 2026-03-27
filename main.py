@@ -401,7 +401,8 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              # Prepare the context from articles
              articles_context = ""
              for i, article in enumerate(req.articles):
-                 articles_context += f"【文獻 {i+1}】\n標題: {article.get('title')}\n年份: {article.get('year')}\n摘要: {article.get('abstract')}\n\n"
+                 pub_type = article.get('pub_type', '未提供分類')
+                 articles_context += f"【文獻 {i+1}】\n標題: {article.get('title')}\n年份: {article.get('year')}\n研究分類: {pub_type}\n摘要: {article.get('abstract')}\n\n"
              
              prompt = f"""請您扮演一位專業的實證醫學 (EBM) 專家。
              根據以下提供的 PICO 搜尋策略與納入分析的文獻，請以嚴謹的學術結構，使用繁體中文撰寫一份綜合實證分析報告。
@@ -415,8 +416,33 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
              【報告必須包含以下五大區塊，並使用 Markdown 格式排版】
              1. 背景 (Background)：簡述本次臨床提問的核心內容。
              2. 方法 (Methods)：說明使用了哪些搜尋策略，以及最終納入了幾篇文獻進行分析。
-             3. 評讀與結果 (Results)：必須使用 **CASP 評讀表格 (Markdown Table)** 來總結所有納入文獻的品質評估，並在表格下詳細補充說明每篇文獻的結果差異與實證等級。
-             4. 結論 (Conclusion)：根據評讀結果，給出具體、可行的臨床建議。
+             3. 評讀與結果 (Results)：請嚴格依照每篇文獻的研究類型，產生對應的 Markdown 表格。
+                ⚠️ **重要要求**：對於某些研究類型，甚至需要針對「同一篇文獻」產生「多個」不同工具的獨立表格進行多角度評讀。
+                請遵循以下對應規則：
+                - 若為 **系統性文獻 (Systematic Reviews)**，必須為該篇文獻分別產生四個獨立的表格：
+                  (1) CASP 檢核表 (2) FAITH 快速評讀表 (3) Oxford CEBM Systematic-Review Critical Appraisal Sheet (4) JBI Checklist for Systematic Reviews and Research Syntheses
+                - 若為 **隨機對照試驗 (RCT)**，必須為該篇文獻分別產生三個獨立的表格：
+                  (1) CASP RCT Checklist (2) Oxford CEBM RCT Critical Appraisal Sheet (3) JBI Checklist for RCTs
+                - 若為 **世代研究 (Cohort study)**，產生一個表格：CASP 檢核表
+                - 若為 **病例對照研究 (Case control study)**，產生一個表格：CASP 檢核表
+                - 若為 **臨床診療指引 (Clinical practice guideline, CPG)**，產生一個表格：AGREE II 評讀工具
+                - 若為其他類型文獻，請挑選一個最合適的權威工具（如 CASP 或 JBI）。
+                
+                ⚠️ **表格格式要求**：每一份檢核表都必須是一個獨立且完整的 **Markdown 表格**。
+                在每個表格上方，請明確標示：
+                - 文獻作者與年份：
+                - 研究設計類型：
+                - 所選用的評讀工具名稱：（明確標示是 CASP, JBI, FAITH 或是 Oxford CEBM 等）
+                
+                表格的欄位必須固定為三欄，請詳細列出該檢核表工具的所有評估題目來做呈現：
+                | 評估項目 (Assessment Item) | 評估結果 (Yes / No / Unclear / N/A) | 詳細說明與證據 (Comments/Evidence) |
+                |---|---|---|
+                | (列出對應工具的題目 1) | ... | (根據摘要判斷的說明) |
+                | (列出對應工具的題目 2) | ... | (根據摘要判斷的說明) |
+                
+                全部的檢核表羅列完畢後，請根據該篇文獻的整體評讀結果給予綜合評價。
+                
+             4. 結論與建議 (Conclusion & Recommendations)：綜合上述所有文獻的各項檢核表評讀結果，給予最終的臨床結論以及具體建議。
              5. 參考文獻 (References)：列出所有納入分析的文獻，必須嚴格遵守 **APA 第七版 (APA 7th edition)** 格式。
              
              ⚠️ 重要要求：整份報告的內文撰寫（包含背景、方法、結果、結論），若有提及特定文獻，請務必使用標準的 **APA 文內引用 (In-text citations，例如：Author, Year)** 格式。
