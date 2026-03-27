@@ -422,9 +422,10 @@ async def generate_ebm_report(req: GenerateReportRequest, db: Session = Depends(
                  html_content = markdown.markdown(llm_report, extensions=['extra'])
              except ImportError:
                  html_content = f"<pre style='white-space: pre-wrap; font-family: inherit;'>{llm_report}</pre>"
-                 
+                
              try:
-                 db.add(ActivityLog(action_type="GENERATE_REPORT", details=f"Generated report for {len(req.articles)} articles. PICO: {req.pico_query}"))
+                 full_details = f"【PICO 提問】\n{req.pico_query}\n\n【納入文獻數】\n{len(req.articles)} 篇\n\n【完整實證報告】\n{llm_report}"
+                 db.add(ActivityLog(action_type="GENERATE_REPORT", details=full_details))
                  db.commit()
              except Exception as _e:
                  db.rollback()
@@ -497,10 +498,28 @@ def view_admin_logs(page: int = 1, db: Session = Depends(get_db)):
                         <th style="width: 70%;">詳細內容</th>
                     </tr>
         """
+        import html as html_lib
+        html_table_rows = ""
         for log in logs:
-            time_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else ""
-            safe_details = log.details.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") if log.details else ""
-            html += f"<tr><td>{time_str}</td><td>{log.action_type}</td><td class='details'>{safe_details}</td></tr>"
+            # Format the timestamp
+            time_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            # Escape HTML to prevent injection, and wrap details in an expandable <details> tag for massive reports
+            escaped_details = html_lib.escape(log.details or "")
+            expandable_details = f"""
+            <details style="cursor: pointer;">
+                <summary style="font-weight: bold; color: #0056b3;">點擊展開完整內容</summary>
+                <div style="margin-top: 10px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; font-family: monospace; max-height: 500px; overflow-y: auto;">{escaped_details}</div>
+            </details>
+            """
+            
+            html_table_rows += f"""
+            <tr>
+                <td>{time_str}</td>
+                <td><span style="display:inline-block; padding: 5px 10px; background: #e9ecef; border-radius: 20px; font-size: 0.9em; font-weight: bold;">{log.action_type}</span></td>
+                <td>{expandable_details}</td>
+            </tr>
+            """
+        html += html_table_rows
             
         prev_disabled = "disabled" if page <= 1 else ""
         next_disabled = "disabled" if page >= total_pages else ""
