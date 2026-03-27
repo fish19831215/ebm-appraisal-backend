@@ -138,6 +138,13 @@ async def chat_with_ebm(req: ChatRequest, db: Session = Depends(get_db)):
         response = chat.send_message(current_msg_text)
         
         print(f"==========\\n[用戶紀錄] AI 對話:\\n用戶: {current_msg_text}\\n助理: {response.text}\\n==========")
+        
+        try:
+            db.add(ActivityLog(action_type="CHAT", details=f"【用戶提問】\n{current_msg_text}\n\n【AI 回覆】\n{response.text}"))
+            db.commit()
+        except Exception as _e:
+            db.rollback()
+            
         return {"response": response.text}
     except Exception as e:
         import traceback
@@ -184,7 +191,8 @@ async def extract_pico(req: ExtractPicoRequest, db: Session = Depends(get_db)):
         print(f"==========\\n[用戶紀錄] 萃取 PICO:\\n{json.dumps(pico_json, ensure_ascii=False, indent=2)}\\n==========")
         
         try:
-            db.add(ActivityLog(action_type="PICO_EXTRACTION", details=f"P: {pico_json.get('p')}\nI: {pico_json.get('i')}\nC: {pico_json.get('c')}\nO: {pico_json.get('o')}"))
+            full_pico_details = f"【對話紀錄】\n{conversation_text}\n\n【萃取結果】\nP: {pico_json.get('p')}\nI: {pico_json.get('i')}\nC: {pico_json.get('c')}\nO: {pico_json.get('o')}"
+            db.add(ActivityLog(action_type="PICO_EXTRACTION", details=full_pico_details))
             db.commit()
         except Exception as _e:
             db.rollback()
